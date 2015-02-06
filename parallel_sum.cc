@@ -56,11 +56,13 @@ int main()
            num_threads = 1;
        }
 
-       Clock::time_point t0 = Clock::now();
-       cout << "sum is " << parallel_sum(v, num_threads) << endl;
-       Clock::time_point t1 = Clock::now();
-       auto ms = chrono::duration_cast<microseconds>(t1-t0);
-       cout << "parallel sum time: " << ms.count() << endl;
+       for (int i = 1; i <= num_threads;++i) {
+           Clock::time_point t0 = Clock::now();
+           cout << "sum is " << parallel_sum(v, num_threads) << endl;
+           Clock::time_point t1 = Clock::now();
+           auto ms = chrono::duration_cast<microseconds>(t1-t0);
+           cout << "parallel sum time with " << i << " threads: " << ms.count() << endl;
+       }
    }
 
    {
