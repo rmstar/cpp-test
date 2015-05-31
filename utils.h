@@ -2,6 +2,9 @@
 #include <random>
 #include <thread>
 #include <chrono>
+#include <string>
+#include <vector>
+#include <boost/algorithm/string.hpp>
 
 namespace utils {
     int get_random_number_in_range(int start, int end)
@@ -16,5 +19,13 @@ namespace utils {
     {
         auto msecs = get_random_number_in_range(1, 20);
         std::this_thread::sleep_for(std::chrono::milliseconds(msecs));
+    }
+
+    std::vector<std::string> split_string(const std::string &str,
+                                          const std::string &delims)
+    {
+        std::vector<std::string> strs;
+        boost::split(strs, str, boost::is_any_of(delims));
+        return strs;
     }
 }
