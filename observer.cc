@@ -73,7 +73,13 @@ public:
     // until the object is completely constructed.
     void start()
     {
+        // enable_shared_from_this<WidgetObserver<T>> is a 'dependent base', ie base class
+        // whose type depends on template param. so we need qualified name lookup.
+        w_.register_observer(this->shared_from_this());
+#if 0
+        //  this works too..
         w_.register_observer(enable_shared_from_this<WidgetObserver<T>>::shared_from_this());
+#endif
     }
 
     void show() override
