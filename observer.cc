@@ -2,12 +2,14 @@
 #include <set>
 #include <stdexcept>
 #include <memory>
+#include <string>
 
 using namespace std;
 
+template <typename T>
 struct ObserverInterface
 {
-    virtual void update(int data) = 0;
+    virtual void update(T data) = 0;
 };
 
 
@@ -16,23 +18,24 @@ struct DisplayInterface
     virtual void show() = 0;
 };
 
+template <typename T>
 class Widget
 {
 public:
-    void register_observer(shared_ptr<ObserverInterface> o)
+    void register_observer(shared_ptr<ObserverInterface<T>> o)
     {
         obs_.insert(o);
     }
 
-    void remove_observer(shared_ptr<ObserverInterface> o)
+    void remove_observer(shared_ptr<ObserverInterface<T>> o)
     {
         obs_.erase(o);
     }
     
-    void update_widget(int widget_count)
+    void update_widget(T val)
     {
-        cout << "update_widget: " << widget_count << "\n";
-        widget_count_ = widget_count;
+        cout << "update_widget: " << val << "\n";
+        widget_val_ = val;
         notify_observers();
     }
     
@@ -42,7 +45,7 @@ protected:
         for (auto &i: obs_) {
             auto ptr = i.lock();
             if (ptr) {
-                ptr->update(widget_count_);
+                ptr->update(widget_val_);
                 auto d = dynamic_pointer_cast<DisplayInterface>(ptr);
                 if (d == nullptr) {
                     throw runtime_error("Object doesn't have a display interface");
@@ -53,14 +56,15 @@ protected:
     }
 
 private:
-    int widget_count_;
-    set<weak_ptr<ObserverInterface>, owner_less<weak_ptr<ObserverInterface>>> obs_;
+    T widget_val_;
+    set<weak_ptr<ObserverInterface<T>>, owner_less<weak_ptr<ObserverInterface<T>>>> obs_;
 };
 
-class WidgetObserver: public ObserverInterface, public DisplayInterface, public enable_shared_from_this<WidgetObserver>
+template <typename T>
+class WidgetObserver: public ObserverInterface<T>, public DisplayInterface, public enable_shared_from_this<WidgetObserver<T>>
 {
 public:
-    WidgetObserver(Widget &w): widget_count_(0), w_(w)
+    WidgetObserver(Widget<T> &w): w_(w)
     { }
 
     // we need a start() method because we can't use shared_from_this until the
@@ -69,28 +73,29 @@ public:
     // until the object is completely constructed.
     void start()
     {
-        w_.register_observer(shared_from_this());
+        w_.register_observer(enable_shared_from_this<WidgetObserver<T>>::shared_from_this());
     }
 
     void show() override
     {
-        cout << "WidgeObserver: Widget count: " << widget_count_ << endl;
+        cout << "WidgeObserver: Widget contains: " << widget_val_ << endl;
     }
 
-    void update(int widget_count) override
+    void update(T val) override
     {
-        widget_count_ = widget_count;
+        widget_val_ = val;
     }
 
 private:
-    Widget &w_;
-    int widget_count_;
+    Widget<T> &w_;
+    T widget_val_{};
 };
 
-class AggregateObserver: public ObserverInterface, public DisplayInterface, public enable_shared_from_this<AggregateObserver>
+template <typename T>
+class AggregateObserver: public ObserverInterface<T>, public DisplayInterface, public enable_shared_from_this<AggregateObserver<T>>
 {
 public:
-    AggregateObserver(Widget &w): widget_count_(0), w_(w)
+    AggregateObserver(Widget<T> &w): w_(w)
     { }
 
     // we need a start() method because we can't use shared_from_this until the
@@ -99,72 +104,73 @@ public:
     // until the object is completely constructed.
     void start()
     {
-        w_.register_observer(shared_from_this());
+        w_.register_observer(enable_shared_from_this<AggregateObserver<T>>::shared_from_this());
     }
 
     void show() override
     {
-        cout << "AggregateObserver: Widget count: " << widget_count_ << endl;
+        cout << "AggregateObserver: Widget contains: " << widget_val_ << endl;
     }
 
-    void update(int widget_count) override
+    void update(T val) override
     {
-        widget_count_ += widget_count;
+        widget_val_ += val;
     }
 
 private:
-    Widget &w_;
-    int widget_count_;
+    Widget<T> &w_;
+    T widget_val_;
 };
 
-class DontCareObserver: public ObserverInterface, public DisplayInterface, public enable_shared_from_this<DontCareObserver>
+template <typename T>
+class DontCareObserver: public ObserverInterface<T>, public DisplayInterface, public enable_shared_from_this<DontCareObserver<T>>
 {
 public:
     DontCareObserver()
     { }
 
-    void set_widget(Widget &w)
+    void set_widget(Widget<T> &w)
     {
         w_ = &w;
-        w_->register_observer(shared_from_this());
+        w_->register_observer(enable_shared_from_this<DontCareObserver<T>>::shared_from_this());
     }
     void show() override
     {
         cout << "got some widget\n";
     }
 
-    void update(int) override
+    void update(T) override
     {
         // meh
     }
 
 private:
-    Widget *w_;
+    Widget<T> *w_;
 
 };
 
 int main()
 {
-    Widget w;
-    auto wo1 = make_shared<WidgetObserver>(w);
+    Widget<string> w;
+    auto wo1 = make_shared<WidgetObserver<string>>(w);
     wo1->start();
 
-    auto wo2 = make_shared<DontCareObserver>();
+    auto wo2 = make_shared<DontCareObserver<string>>();
     wo2->set_widget(w);
 
-    auto wo3 = make_shared<AggregateObserver>(w);
+    auto wo3 = make_shared<AggregateObserver<string>>(w);
     wo3->start();
 
-    w.update_widget(10);
+    w.update_widget("Hello ");
     cout << "\n";
-    w.update_widget(20);
+    w.update_widget("world ");
     cout << "\n";
 
     w.remove_observer(wo1);
     cout << "\nremoved WidgetObserver\n";
-    w.update_widget(30);
+    w.update_widget("foo");
 
     wo3.reset();
     cout << "\nreset AggregateObserver\n";
-    w.update_widget(40);
+    w.update_widget("bar");
 }
